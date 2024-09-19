@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "370941343101",
+    "project_id": "notes-fab51",
+    "storage_bucket": "notes-fab51.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:370941343101:android:63717851d1d7fa22c80814",
+        "android_client_info": {
+          "package_name": "com.myproject.notes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwEOrO_yvW_KDZ8vIybPdG_abBRaAh3Eg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
