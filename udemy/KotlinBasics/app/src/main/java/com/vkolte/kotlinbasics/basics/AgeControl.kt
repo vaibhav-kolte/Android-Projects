@@ -1,4 +1,4 @@
-package com.vkolte.kotlinbasics
+package com.vkolte.kotlinbasics.basics
 
 fun main() {
 
