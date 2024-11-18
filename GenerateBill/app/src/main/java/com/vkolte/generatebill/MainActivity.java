@@ -35,7 +35,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleOnClick() {
         binding.btnGenerateBill.setOnClickListener(v -> {
-//            Toast.makeText(this, "this", Toast.LENGTH_SHORT).show();
             try {
                 HSSFWorkbook hssfWorkbook = new HSSFWorkbook();
                 HSSFSheet hssfSheet = hssfWorkbook.createSheet("MySheet");
