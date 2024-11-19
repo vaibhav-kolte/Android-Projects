@@ -1,15 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    id("kotlin-parcelize")
 }
 
 android {
-    namespace = "com.vkolte.myrecipeapp"
+    namespace = "com.vkolte.navigationsample"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.vkolte.myrecipeapp"
+        applicationId = "com.vkolte.navigationsample"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
@@ -52,16 +51,8 @@ android {
 
 dependencies {
 
+
     implementation(libs.androidx.navigation.compose)
-    
-    //Compose ViewModel
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    //Network calls
-    implementation(libs.retrofit)
-    //Json to Kotlin object mapping
-    implementation(libs.converter.gson)
-    //Image loading
-    implementation(libs.coil.compose)
 
 
     implementation(libs.androidx.core.ktx)

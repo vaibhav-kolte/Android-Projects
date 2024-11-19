@@ -1,6 +1,7 @@
 package com.vkolte.myrecipeapp
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -16,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,7 +25,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 
 @Composable
-fun RecipeScreen(modifier: Modifier = Modifier) {
+fun RecipeScreen(
+    modifier: Modifier = Modifier,
+    viewState: MainViewModel.RecipeState,
+    navigateToCategory: (Category) -> Unit
+) {
     val recipeViewModel: MainViewModel = viewModel()
     val viewState by recipeViewModel.categoriesState
 
@@ -34,24 +40,32 @@ fun RecipeScreen(modifier: Modifier = Modifier) {
             }
 
             viewState.error != null -> {
-                Text(text = "ERROR OCCURRED")
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(text = "ERROR OCCURRED")
+                }
             }
 
             else -> {
-                CategoryScreen(categories = viewState.list)
+                CategoryScreen(categories = viewState.list, navigateToCategory)
             }
         }
     }
 }
 
 @Composable
-fun CategoryScreen(categories: List<Category>) {
+fun CategoryScreen(
+    categories: List<Category>,
+    navigateToCategory: (Category) -> Unit
+) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize()
     ) {
         items(categories) { categories ->
-            CategoryItem(category = categories)
+            CategoryItem(category = categories, navigateToCategory)
         }
     }
 }
@@ -59,11 +73,19 @@ fun CategoryScreen(categories: List<Category>) {
 
 // How each item looks like
 @Composable
-fun CategoryItem(category: Category) {
+fun CategoryItem(
+    category: Category,
+    navigateToCategory: (Category) -> Unit
+) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .padding(8.dp)
-            .fillMaxSize(),
+            .fillMaxSize()
+            .clickable {
+//                Toast.makeText(context, category.strCategory, Toast.LENGTH_LONG).show()
+                navigateToCategory(category)
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
