@@ -2,6 +2,7 @@ package com.vkolte.musicappui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,6 +32,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +53,10 @@ fun MainView() {
     val navBackStackEntry by controller.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    val dialogOpen = remember {
+        mutableStateOf(false)
+    }
+
     val currentScreen = remember {
         viewModel.currentScreen.value
     }
@@ -57,7 +65,7 @@ fun MainView() {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(text = "Home") },
+            TopAppBar(title = { Text(text = title.value) },
                 navigationIcon = {
                     IconButton(onClick = {
                         // Open the drawer
@@ -78,7 +86,7 @@ fun MainView() {
                             scaffoldState.drawerState.close()
                         }
                         if (item.dRoute == "add_account") {
-                            // Open dialog
+                            dialogOpen.value = true
                         } else {
                             controller.navigate(item.dRoute)
                             title.value = item.dTitle
@@ -88,10 +96,8 @@ fun MainView() {
             }
         }
     ) {
-        Text(
-            text = "Text",
-            modifier = Modifier.padding(it)
-        )
+        Navigation(navController = controller, viewModel = viewModel, pd = it)
+        AccountDialog(dialogOpen = dialogOpen)
     }
 }
 
@@ -116,6 +122,23 @@ fun DrawerItem(
         Text(text = item.dTitle, style = MaterialTheme.typography.titleMedium)
     }
 }
+
+@Composable
+fun Navigation(navController: NavController, viewModel: MainViewModel, pd:PaddingValues){
+
+    NavHost(navController = navController as NavHostController,
+        startDestination = Screen.DrawerScreen.Account.route, modifier = Modifier.padding(pd) ){
+
+        composable(Screen.DrawerScreen.Account.route){
+            AccountView()
+        }
+        composable(Screen.DrawerScreen.Subscription.route){
+            SubscriptionView()
+        }
+    }
+
+}
+
 
 @Preview(showBackground = true)
 @Composable
