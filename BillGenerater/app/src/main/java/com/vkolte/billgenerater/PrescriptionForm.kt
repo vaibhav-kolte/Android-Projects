@@ -36,49 +36,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
+import com.vkolte.billgenerater.viewmodel.PrescriptionViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrescriptionForm(modifier: Modifier = Modifier) {
-    var patientName by remember { mutableStateOf("") }
-    var patientAge by remember { mutableStateOf("") }
-    var diagnosis by remember { mutableStateOf("") }
-    var medicines by remember { mutableStateOf("") }
-    var consultationFee by remember { mutableStateOf("") }
-    var showBill by remember { mutableStateOf(false) }
-    
-    // Error states
-    var showErrors by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    
+fun PrescriptionForm(
+    viewModel: PrescriptionViewModel = viewModel(),
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-
-    // Validation function
-    fun validateFields(): Boolean {
-        return when {
-            patientName.isBlank() -> {
-                errorMessage = "Please enter patient name"
-                false
-            }
-            patientAge.isBlank() -> {
-                errorMessage = "Please enter patient age"
-                false
-            }
-            diagnosis.isBlank() -> {
-                errorMessage = "Please enter diagnosis"
-                false
-            }
-            medicines.isBlank() -> {
-                errorMessage = "Please enter prescribed medicines"
-                false
-            }
-            consultationFee.isBlank() -> {
-                errorMessage = "Please enter consultation fee"
-                false
-            }
-            else -> true
-        }
-    }
 
     Column(
         modifier = modifier
@@ -93,74 +62,59 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
         )
 
         OutlinedTextField(
-            value = patientName,
-            onValueChange = { 
-                patientName = it
-                showErrors = false 
-            },
+            value = uiState.patientName,
+            onValueChange = viewModel::updatePatientName,
             label = { Text("Patient Name") },
             modifier = Modifier.fillMaxWidth(),
-            isError = showErrors && patientName.isBlank(),
-            supportingText = if (showErrors && patientName.isBlank()) {
+            isError = uiState.showErrors && uiState.patientName.isBlank(),
+            supportingText = if (uiState.showErrors && uiState.patientName.isBlank()) {
                 { Text("Patient name is required") }
             } else null
         )
 
         OutlinedTextField(
-            value = patientAge,
-            onValueChange = { 
-                patientAge = it
-                showErrors = false 
-            },
+            value = uiState.patientAge,
+            onValueChange = viewModel::updatePatientAge,
             label = { Text("Patient Age") },
             modifier = Modifier.fillMaxWidth(),
-            isError = showErrors && patientAge.isBlank(),
-            supportingText = if (showErrors && patientAge.isBlank()) {
+            isError = uiState.showErrors && uiState.patientAge.isBlank(),
+            supportingText = if (uiState.showErrors && uiState.patientAge.isBlank()) {
                 { Text("Patient age is required") }
             } else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
 
         OutlinedTextField(
-            value = diagnosis,
-            onValueChange = { 
-                diagnosis = it
-                showErrors = false 
-            },
+            value = uiState.diagnosis,
+            onValueChange = viewModel::updateDiagnosis,
             label = { Text("Diagnosis") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
-            isError = showErrors && diagnosis.isBlank(),
-            supportingText = if (showErrors && diagnosis.isBlank()) {
+            isError = uiState.showErrors && uiState.diagnosis.isBlank(),
+            supportingText = if (uiState.showErrors && uiState.diagnosis.isBlank()) {
                 { Text("Diagnosis is required") }
             } else null
         )
 
         OutlinedTextField(
-            value = medicines,
-            onValueChange = { 
-                medicines = it
-                showErrors = false 
-            },
+            value = uiState.medicines,
+            onValueChange = viewModel::updateMedicines,
             label = { Text("Prescribed Medicines") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
-            isError = showErrors && medicines.isBlank(),
-            supportingText = if (showErrors && medicines.isBlank()) {
+            isError = uiState.showErrors && uiState.medicines.isBlank(),
+            supportingText = if (uiState.showErrors && uiState.medicines.isBlank()) {
                 { Text("Prescribed medicines are required") }
             } else null
         )
 
         OutlinedTextField(
-            value = consultationFee,
-            onValueChange = { 
-                consultationFee = it
-                showErrors = false 
-            },
+            value = uiState.consultationFee,
+            onValueChange = viewModel::updateConsultationFee,
             label = { Text("Consultation Fee (₹)") },
             modifier = Modifier.fillMaxWidth(),
-            isError = showErrors && consultationFee.isBlank(),
-            supportingText = if (showErrors && consultationFee.isBlank()) {
+            isError = uiState.showErrors && uiState.consultationFee.isBlank(),
+            supportingText = if (uiState.showErrors && uiState.consultationFee.isBlank()) {
                 { Text("Consultation fee is required") }
             } else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -172,11 +126,8 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
         ) {
             Button(
                 onClick = {
-                    showErrors = true
-                    if (validateFields()) {
-                        showBill = true
-                    } else {
-                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                    if (viewModel.validateFields()) {
+                        viewModel.showBill()
                     }
                 }
             ) {
@@ -185,16 +136,15 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
 
             Button(
                 onClick = {
-                    showErrors = true
-                    if (validateFields()) {
+                    if (viewModel.validateFields()) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             generatePDF(
                                 context,
-                                patientName,
-                                patientAge,
-                                diagnosis,
-                                medicines,
-                                consultationFee
+                                uiState.patientName,
+                                uiState.patientAge,
+                                uiState.diagnosis,
+                                uiState.medicines,
+                                uiState.consultationFee
                             )
                         } else {
                             when {
@@ -204,11 +154,11 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
                                 ) == PackageManager.PERMISSION_GRANTED -> {
                                     generatePDF(
                                         context,
-                                        patientName,
-                                        patientAge,
-                                        diagnosis,
-                                        medicines,
-                                        consultationFee
+                                        uiState.patientName,
+                                        uiState.patientAge,
+                                        uiState.diagnosis,
+                                        uiState.medicines,
+                                        uiState.consultationFee
                                     )
                                 }
                                 else -> {
@@ -221,7 +171,7 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
                             }
                         }
                     } else {
-                        Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, uiState.errorMessage, Toast.LENGTH_SHORT).show()
                     }
                 }
             ) {
@@ -229,7 +179,7 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
             }
         }
 
-        if (showBill) {
+        if (uiState.showBill) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,14 +190,14 @@ fun PrescriptionForm(modifier: Modifier = Modifier) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Bill Summary", style = MaterialTheme.typography.titleMedium)
-                    Text("Patient Name: $patientName")
-                    Text("Age: $patientAge")
-                    Text("Diagnosis: $diagnosis")
+                    Text("Patient Name: ${uiState.patientName}")
+                    Text("Age: ${uiState.patientAge}")
+                    Text("Diagnosis: ${uiState.diagnosis}")
                     Text("Prescribed Medicines:")
-                    Text(medicines)
+                    Text(uiState.medicines)
                     Divider()
                     Text(
-                        "Total Amount: ₹$consultationFee",
+                        "Total Amount: ₹${uiState.consultationFee}",
                         style = MaterialTheme.typography.titleMedium
                     )
                 }

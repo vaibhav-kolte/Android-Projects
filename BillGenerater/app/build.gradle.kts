@@ -71,5 +71,25 @@ dependencies {
     implementation(libs.itext7.core)
     
     // For runtime permissions
-    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation(libs.androidx.activity.ktx)
+
+     // Compose ViewModel
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    
+    // Compose Runtime
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
+    
+    // AndroidX Lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx.v270)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    
+    // PDF Generation (iText)
+    implementation(libs.itext7.core)
+    
+    // Activity KTX for viewModels()
+    implementation(libs.androidx.activity.ktx)
 }
