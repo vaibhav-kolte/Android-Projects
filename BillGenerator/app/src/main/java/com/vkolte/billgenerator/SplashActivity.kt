@@ -2,42 +2,103 @@ package com.vkolte.billgenerator
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.vkolte.billgenerater.R
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.vkolte.billgenerator.ui.theme.BillGeneratorTheme
-import com.vkolte.billgenerator.viewmodel.SplashViewModel
-import com.vkolte.billgenerator.viewmodel.SplashUiState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+class SplashViewModel : ViewModel() {
+    private val _uiState = MutableStateFlow<SplashUiState>(SplashUiState.Loading)
+    val uiState: StateFlow<SplashUiState> = _uiState
+
+    fun checkPermissionsAndStartDelay(context: Context, permissions: Array<String>) {
+        viewModelScope.launch {
+            // Check if all permissions are granted
+            val allPermissionsGranted = permissions.all {
+                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+            }
+
+            if (allPermissionsGranted) {
+                // If all permissions are granted, start delay immediately
+                startSplashDelay()
+            } else {
+                // If any permission is not granted, show permission dialog
+                _uiState.value = SplashUiState.RequiresPermission
+            }
+        }
+    }
+
+    fun startSplashDelay() {
+        viewModelScope.launch {
+            _uiState.value = SplashUiState.Loading
+            delay(3000) // 3 seconds delay
+            _uiState.value = SplashUiState.NavigateToMain
+        }
+    }
+}
+
+sealed class SplashUiState {
+    object Loading : SplashUiState()
+    object RequiresPermission : SplashUiState()
+    object NavigateToMain : SplashUiState()
+}
+
+@Composable
+fun SplashScreen(
+    showPermissionDialog: Boolean,
+    onRequestPermissions: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = Constants.HOSPITAL_NAME,
+                style = MaterialTheme.typography.headlineMedium
+            )
+        }
+
+        if (showPermissionDialog) {
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("Permission Required") },
+                text = { 
+                    Text("This app needs permissions to save prescriptions and send notifications. Please grant the required permissions to continue.")
+                },
+                confirmButton = {
+                    Button(onClick = onRequestPermissions) {
+                        Text("Grant Permissions")
+                    }
+                }
+            )
+        }
+    }
+}
 
 @SuppressLint("CustomSplashScreen")
 class SplashActivity : ComponentActivity() {
@@ -60,8 +121,13 @@ class SplashActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions.values.all { it }) {
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            // If all permissions are granted, start delay
             viewModel.startSplashDelay()
+        } else {
+            // If any permission is denied, check again (this will show the dialog)
+            viewModel.checkPermissionsAndStartDelay(this, requiredPermissions)
         }
     }
 
@@ -70,94 +136,30 @@ class SplashActivity : ComponentActivity() {
         
         setContent {
             BillGeneratorTheme {
-                val uiState by viewModel.uiState.collectAsState()
-                
-                SplashScreen(
-                    showPermissionDialog = uiState is SplashUiState.RequiresPermission,
-                    onRequestPermissions = { permissionLauncher.launch(requiredPermissions) }
-                )
-                
-                // Handle navigation in a LaunchedEffect
-                LaunchedEffect(uiState) {
-                    when (uiState) {
-                        is SplashUiState.Loading -> {
-                            viewModel.checkPermissionsAndStartDelay(requiredPermissions)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val uiState by viewModel.uiState.collectAsState()
+                    
+                    SplashScreen(
+                        showPermissionDialog = uiState is SplashUiState.RequiresPermission,
+                        onRequestPermissions = { permissionLauncher.launch(requiredPermissions) }
+                    )
+                    
+                    LaunchedEffect(uiState) {
+                        when (uiState) {
+                            is SplashUiState.Loading -> {
+                                viewModel.checkPermissionsAndStartDelay(this@SplashActivity, requiredPermissions)
+                            }
+                            is SplashUiState.NavigateToMain -> {
+                                startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                                finish()
+                            }
+                            else -> { /* do nothing */ }
                         }
-                        is SplashUiState.NavigateToMain -> {
-                            startActivity(Intent(this@SplashActivity, MainActivity::class.java))
-                            finish()
-                        }
-                        else -> { /* do nothing */ }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun SplashScreen(
-    showPermissionDialog: Boolean,
-    onRequestPermissions: () -> Unit
-) {
-    var showDialog by remember { mutableStateOf(showPermissionDialog) }
-
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // App Logo/Icon
-            Image(
-                painter = painterResource(id = R.drawable.app_logo),
-                contentDescription = "App Logo",
-                modifier = Modifier.size(150.dp)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = Constants.HOSPITAL_NAME,
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "${Constants.DOCTOR_NAME}\n${Constants.EDUCATION}",
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Experience: ${Constants.EXPERIENCE}",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-
-            if (showDialog) {
-                AlertDialog(
-                    onDismissRequest = { },
-                    title = { Text("Permission Required") },
-                    text = { 
-                        Text("This app needs permissions to save prescriptions and send notifications. Please grant the required permissions to continue.")
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showDialog = false
-                                onRequestPermissions()
-                            }
-                        ) {
-                            Text("Grant Permissions")
-                        }
-                    }
-                )
             }
         }
     }

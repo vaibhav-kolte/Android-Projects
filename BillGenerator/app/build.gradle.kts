@@ -1,14 +1,15 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    id("kotlin-kapt")
 }
 
 android {
-    namespace = "com.vkolte.billgenerater"
+    namespace = "com.vkolte.billgenerator"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.vkolte.billgenerater"
+        applicationId = "com.vkolte.billgenerator"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
@@ -59,6 +60,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.databinding.adapters)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -92,4 +94,11 @@ dependencies {
     
     // Activity KTX for viewModels()
     implementation(libs.androidx.activity.ktx)
+
+
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+
+    implementation(libs.androidx.navigation.compose)
 }

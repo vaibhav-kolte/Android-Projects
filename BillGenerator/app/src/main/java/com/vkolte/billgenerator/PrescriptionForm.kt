@@ -20,6 +20,7 @@ import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.Paragraph
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import com.itextpdf.layout.element.LineSeparator
@@ -37,15 +38,28 @@ import com.vkolte.billgenerator.viewmodel.PrescriptionViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.vkolte.billgenerater.R
+import com.vkolte.billgenerator.R
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
+import android.graphics.Paint
+import android.graphics.Typeface
 
 @Composable
 fun PrescriptionForm(
     viewModel: PrescriptionViewModel = viewModel(),
+    patientId: Long? = null,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(patientId) {
+        patientId?.let { viewModel.getPatientDetails(it) }
+    }
 
     Column(
         modifier = modifier
@@ -54,10 +68,21 @@ fun PrescriptionForm(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Doctor's Prescription & Bill Generator",
-            style = MaterialTheme.typography.headlineSmall
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                text = if (patientId != null) "New Prescription" else "New Patient",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            // Empty box for alignment
+            Box(modifier = Modifier.size(48.dp))
+        }
 
         OutlinedTextField(
             value = uiState.patientName,
@@ -124,54 +149,30 @@ fun PrescriptionForm(
         ) {
             Button(
                 onClick = {
-                    if (viewModel.validateFields()) {
-                        viewModel.showBill()
-                    }
-                }
+                    viewModel.savePrescription()
+                },
+                enabled = !uiState.isLoading
             ) {
-                Text("Show Bill")
+                Text(if (uiState.isLoading) "Saving..." else "Show Bill")
             }
 
             Button(
                 onClick = {
                     if (viewModel.validateFields()) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            generatePDF(
-                                context,
-                                uiState.patientName,
-                                uiState.patientAge,
-                                uiState.diagnosis,
-                                uiState.medicines,
-                                uiState.consultationFee
+                        generatePDF(
+                            context = context,
+                            patientDetails = BillDetails(
+                                patientNumber = uiState.patientNumber,
+                                patientName = uiState.patientName,
+                                patientAge = uiState.patientAge,
+                                diagnosis = uiState.diagnosis,
+                                medicines = uiState.medicines,
+                                consultationFee = uiState.consultationFee
                             )
-                        } else {
-                            when {
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                                ) == PackageManager.PERMISSION_GRANTED -> {
-                                    generatePDF(
-                                        context,
-                                        uiState.patientName,
-                                        uiState.patientAge,
-                                        uiState.diagnosis,
-                                        uiState.medicines,
-                                        uiState.consultationFee
-                                    )
-                                }
-                                else -> {
-                                    Toast.makeText(
-                                        context,
-                                        "Storage permission required",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }
-                    } else {
-                        Toast.makeText(context, uiState.errorMessage, Toast.LENGTH_SHORT).show()
+                        )
                     }
-                }
+                },
+                enabled = uiState.showBill
             ) {
                 Text("Download PDF")
             }
@@ -188,6 +189,7 @@ fun PrescriptionForm(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Bill Summary", style = MaterialTheme.typography.titleMedium)
+                    Text("Patient Number: ${uiState.patientNumber}")
                     Text("Patient Name: ${uiState.patientName}")
                     Text("Age: ${uiState.patientAge}")
                     Text("Diagnosis: ${uiState.diagnosis}")
@@ -201,146 +203,88 @@ fun PrescriptionForm(
                 }
             }
         }
+
+        if (uiState.errorMessage.isNotBlank()) {
+            Text(
+                text = uiState.errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
     }
 }
 
-private fun generatePDF(
-    context: Context,
-    patientName: String,
-    patientAge: String,
-    diagnosis: String,
-    medicines: String,
-    consultationFee: String
-) {
+data class BillDetails(
+    val patientNumber: String,
+    val patientName: String,
+    val patientAge: String,
+    val diagnosis: String,
+    val medicines: String,
+    val consultationFee: String
+)
+
+fun generatePDF(context: Context, patientDetails: BillDetails) {
     try {
-        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        val currentDate = dateFormat.format(Date())
-        val fileName = "Prescription_${currentDate}.pdf"
-
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(downloadsDir, fileName)
-
-        PdfWriter(file).use { writer ->
-            val pdfDocument = PdfDocument(writer)
-            val document = Document(pdfDocument)
-
-            // Set page margins
-            document.setMargins(40f, 40f, 40f, 40f)
-
-            // Hospital name with larger, bold font
-            val hospitalName = Paragraph(Constants.HOSPITAL_NAME)
-                .setFontSize(20f)
-                .setBold()
-                .setTextAlignment(TextAlignment.CENTER)
-            document.add(hospitalName)
-
-            // Doctor details with professional formatting
-            val doctorInfo = Paragraph("${Constants.DOCTOR_NAME} (${Constants.EDUCATION})")
-                .setFontSize(16f)
-                .setTextAlignment(TextAlignment.CENTER)
-            document.add(doctorInfo)
-
-            val experience = Paragraph("Experience: ${Constants.EXPERIENCE}")
-                .setFontSize(12f)
-                .setTextAlignment(TextAlignment.CENTER)
-            document.add(experience)
-
-            val contact = Paragraph("Contact: ${Constants.CONTACT_NUMBER}")
-                .setFontSize(12f)
-                .setTextAlignment(TextAlignment.CENTER)
-            document.add(contact)
-
-            // Separator line
-            document.add(LineSeparator(DottedLine())
-                .setMarginTop(10f)
-                .setMarginBottom(10f))
-
-            // Current date
-            val currentDateFormatted = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-            document.add(
-                Paragraph("Date: $currentDateFormatted")
-                    .setFontSize(12f)
-            )
-
-            // Patient details section
-            document.add(
-                Paragraph("Patient Details")
-                    .setBold()
-                    .setFontSize(14f)
-                    .setMarginTop(20f)
-            )
-
-            document.add(Paragraph("Name: $patientName").setFontSize(12f))
-            document.add(Paragraph("Age: $patientAge").setFontSize(12f))
-
-            // Diagnosis section
-            document.add(
-                Paragraph("Diagnosis")
-                    .setBold()
-                    .setFontSize(14f)
-                    .setMarginTop(20f)
-            )
-            document.add(Paragraph(diagnosis).setFontSize(12f))
-
-            // Medicines section
-            document.add(
-                Paragraph("Prescribed Medicines")
-                    .setBold()
-                    .setFontSize(14f)
-                    .setMarginTop(20f)
-            )
-            
-            // Split medicines into bullet points
-            medicines.split("\n").forEach { medicine ->
-                if (medicine.isNotBlank()) {
-                    document.add(
-                        Paragraph("• $medicine")
-                            .setFontSize(12f)
-                            .setMarginLeft(20f)
-                    )
-                }
-            }
-
-            // Separator line
-            document.add(LineSeparator(DottedLine())
-                .setMarginTop(20f)
-                .setMarginBottom(20f))
-
-            // Consultation fee with bold total
-            document.add(
-                Paragraph("Consultation Fee: ₹$consultationFee")
-                    .setBold()
-                    .setFontSize(14f)
-                    .setTextAlignment(TextAlignment.RIGHT)
-            )
-
-            // Footer
-            document.add(
-                Paragraph("Thank you for your visit")
-                    .setFontSize(10f)
-                    .setTextAlignment(TextAlignment.CENTER)
-                    .setMarginTop(30f)
-                    .setItalic()
-            )
-
-            document.close()
+        // Create file
+        val fileName = "Bill_${patientDetails.patientNumber}_${System.currentTimeMillis()}.pdf"
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+        
+        // Initialize PDF writer
+        val writer = PdfWriter(file)
+        val pdf = PdfDocument(writer)
+        val document = Document(pdf)
+        
+        // Add hospital name
+        val hospitalName = Paragraph(Constants.HOSPITAL_NAME)
+            .setTextAlignment(TextAlignment.CENTER)
+            .setFontSize(16f)
+        document.add(hospitalName)
+        
+        document.add(Paragraph("\n")) // Add spacing
+        
+        // Add patient details
+        document.add(Paragraph("Patient Number: ${patientDetails.patientNumber}"))
+        document.add(Paragraph("Patient Name: ${patientDetails.patientName}"))
+        document.add(Paragraph("Age: ${patientDetails.patientAge}"))
+        
+        document.add(Paragraph("\n")) // Add spacing
+        
+        // Add diagnosis
+        document.add(Paragraph("Diagnosis:"))
+        document.add(Paragraph(patientDetails.diagnosis)
+            .setMarginLeft(20f))
+        
+        document.add(Paragraph("\n")) // Add spacing
+        
+        // Add medicines
+        document.add(Paragraph("Prescribed Medicines:"))
+        patientDetails.medicines.split("\n").forEach { medicine ->
+            document.add(Paragraph(medicine)
+                .setMarginLeft(20f))
         }
-
-        // Show notification for successful download
+        
+        document.add(Paragraph("\n")) // Add spacing
+        
+        // Add dotted line
+        document.add(LineSeparator(DottedLine()))
+        
+        // Add consultation fee
+        document.add(Paragraph("Consultation Fee: ₹${patientDetails.consultationFee}")
+            .setTextAlignment(TextAlignment.RIGHT)
+            .setFontSize(12f)
+            .setBold())
+        
+        // Close document
+        document.close()
+        
+        // Show success message
+        Toast.makeText(context, "PDF saved: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+        
+        // Show notification for download
         showDownloadNotification(context, fileName)
-
-        Toast.makeText(
-            context,
-            "PDF saved to Downloads folder: $fileName",
-            Toast.LENGTH_LONG
-        ).show()
-
+        
     } catch (e: Exception) {
-        Toast.makeText(
-            context,
-            "Error generating PDF: ${e.message}",
-            Toast.LENGTH_LONG
-        ).show()
+        Toast.makeText(context, "Error generating PDF: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -349,17 +293,19 @@ private fun showDownloadNotification(context: Context, fileName: String) {
     val channelId = "pdf_download_channel"
     
     // Create notification channel for Android 8.0 and above
-    val channel = NotificationChannel(
-        channelId,
-        "PDF Downloads",
-        NotificationManager.IMPORTANCE_DEFAULT
-    ).apply {
-        description = "Notifications for PDF download completion"
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+            channelId,
+            "PDF Downloads",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notifications for PDF download completion"
+        }
+        notificationManager.createNotificationChannel(channel)
     }
-    notificationManager.createNotificationChannel(channel)
 
     // Create intent to open the PDF file
-    val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
+    val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
     val fileUri = FileProvider.getUriForFile(
         context,
         "${context.packageName}.provider",
@@ -381,25 +327,14 @@ private fun showDownloadNotification(context: Context, fileName: String) {
 
     // Build the notification
     val notification = NotificationCompat.Builder(context, channelId)
-        .setSmallIcon(R.drawable.ic_notifications) // You'll need to add this icon
+        .setSmallIcon(R.drawable.ic_notifications)
         .setContentTitle("PDF Downloaded Successfully")
         .setContentText("Prescription saved as $fileName")
         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         .setAutoCancel(true)
         .setContentIntent(pendingIntent)
-        .addAction(
-            R.drawable.ic_open, // You'll need to add this icon
-            "Open PDF",
-            pendingIntent
-        )
         .build()
 
     // Show the notification
     notificationManager.notify(1, notification)
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PrescriptionFormPreview() {
-    PrescriptionForm()
 }
