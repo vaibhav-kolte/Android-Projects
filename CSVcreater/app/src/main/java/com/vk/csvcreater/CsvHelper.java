@@ -40,7 +40,7 @@ public class CsvHelper {
             writer.close();
 
             Log.d(TAG, "CSV saved at: " + file.getAbsolutePath());
-            Toast.makeText(context, "CSV saved: " + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            Toast.makeText(context, "Record saved.", Toast.LENGTH_SHORT).show();
 
         } catch (IOException e) {
             Log.e(TAG, "saveCSV: Error: " + e.getMessage());
